@@ -21,6 +21,7 @@ Tag-Based Summary: Quickly see which topics you're focusing on with a summary of
 Colorful & Themed Interface: A CLI that's not just functional, but also fun to use.
 
 **🚀 Installation**
+
 For Saitama to be available globally (so you can run saitama from any directory), you need to have Go installed and your GOPATH configured.
 
 **The simplest way to install is with go install:**
@@ -33,7 +34,9 @@ go install github.com/Thedrogon/saitama@latest
 
 This command will download, compile, and install the saitama binary in your Go bin directory. If this directory is in your system's PATH, you're ready to go!
 
-📖 Usage (The Hero's Manual)
+**📖 Usage (The Hero's Manual)**
+
+
 Here are the main techniques you'll need for your training.
 
 1. Add a New Problem (saitama add)
@@ -43,9 +46,9 @@ $ saitama add
 ? Enter the problem ID (e.g., LC1): › LC141
 ? Enter the problem name (e.g., 'Two Sum'): › Linked List Cycle
 ? Enter tags (comma separated, e.g., array,hashmap): › linkedlist, twopointers
+👊 ONE PUNCH! Problem 'Linked List Cycle' added successfully!
 ```
 
-👊 ONE PUNCH! Problem 'Linked List Cycle' added successfully!
 
 2. List All Problems (saitama list)
 View your entire arsenal of problems.
@@ -83,7 +86,9 @@ twopointers          - 1 problem
 5. Get Help (saitama wiki or saitama --help)
 Displays the help menu with all available commands.
 
-🔧 Development
+***🔧 Development***
+
+
 Interested in contributing? Here’s how you can get the project running locally.
 
 Clone the repository:
@@ -103,4 +108,5 @@ Run directly:
 ``
 
 ***📝 License***
+
 This project is licensed under the MIT License. See the LICENSE file for details.
