@@ -25,7 +25,7 @@ For Saitama to be available globally (so you can run saitama from any directory)
 **The simplest way to install is with go install:**
 
 ```
-go install [github.com/your-username/saitama@latest](https://github.com/your-username/saitama@latest)
+go install github.com/Thedrogon/saitama@latest
 ```
 
 (Note: Replace your-username/saitama with the actual path to your repository once it's on GitHub/GitLab etc.)
@@ -87,7 +87,7 @@ Interested in contributing? Here’s how you can get the project running locally
 
 Clone the repository:
 ```
-git clone [https://github.com/your-username/saitama.git](https://github.com/your-username/saitama.git)
+git clone https://github.com/Thedrogon/saitama.git]
 cd saitama
 ```
 
