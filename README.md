@@ -9,6 +9,7 @@ The ultimate CLI tool for your coding training regimen. One punch is all you nee
 Saitama is a simple, powerful, and fun command-line tool designed to help you track your coding problems. Inspired by the "One-Punch Man," it provides a no-nonsense, focused environment to manage your practice sessions directly from the terminal.
 
 **✨ Features**
+
 Interactive Problem Adding: No need for clunky flags. An interactive survey guides you through adding new problems.
 
 Clean Problem Listing: View all your saved problems in a neat, colorful, and easy-to-read format.
