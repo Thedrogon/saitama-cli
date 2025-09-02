@@ -28,8 +28,15 @@ func main() {
 
 	var rootCmd = &cobra.Command{
 		Use:   "saitama",
-		Short: color.CyanString("A CLI app to track your coding problems."),
-		Long:  color.HiCyanString(`A colorful and simple CLI tool to manage, list, and randomly select coding problems to practice.`),
+		Short: color.HiCyanString("A CLI app to track your coding problems."),
+		Long: color.HiCyanString(banner) + "\n" +
+			color.WhiteString("A powerful CLI tool to manage, organize, and randomly select coding problems.\n") +
+			color.YellowString("Train like a hero! 💪"),
+		Example: `  saitama add           # Add a new problem interactively
+  saitama list          # List all problems
+  saitama pick          # Get 5 random problems
+  saitama search dp     # Search problems by tag
+  saitama stats         # View problem statistics`,
 	}
 
 	// Add commands to the root command
