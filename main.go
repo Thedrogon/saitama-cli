@@ -5,17 +5,20 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"time"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"github.com/AlecAivazis/survey/v2"
 )
 
 func main() {
-	// Seed the random number generator
-	//rand.Seed(time.Now().UnixNano())
+	// rand.Seed is deprecated and no longer needed in modern Go.
+	// The math/rand package is automatically seeded.
+
+	// ASCII Art Banner
 	banner := `
  ██████  █████  ██ ████████  █████  ███    ███  █████  
 ██      ██   ██ ██    ██    ██   ██ ████  ████ ██   ██ 
@@ -23,8 +26,8 @@ func main() {
      ██ ██   ██ ██    ██    ██   ██ ██  ██  ██ ██   ██ 
 ███████ ██   ██ ██    ██    ██   ██ ██      ██ ██   ██ 
                                                        
-        Your Coding Problem Training Partner 🥊
-`       	
+        Your Coding Problem Training Partner 🥊        
+`
 
 	var rootCmd = &cobra.Command{
 		Use:   "saitama",
@@ -40,15 +43,26 @@ func main() {
 	}
 
 	// Add commands to the root command
-	rootCmd.AddCommand(addCmd(), listCmd(), pickCmd(), tagsCmd(), wikiCmd())
+	rootCmd.AddCommand(
+		addCmd(),
+		listCmd(),
+		pickCmd(),
+		tagsCmd(),
+		searchCmd(),
+		deleteCmd(),
+		editCmd(),
+		statsCmd(),
+		importCmd(),
+		exportCmd(),
+		wikiCmd(),
+	)
 
 	if err := rootCmd.Execute(); err != nil {
-		
+		// Cobra already prints the error, so we just exit
 		os.Exit(1)
 	}
 }
 
-// addCmd creates the "add" command
 // addCmd creates the "add" command with improved UX
 func addCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -97,13 +111,10 @@ func addCmd() *cobra.Command {
 				},
 			}
 
+			// FIX: The correct way to handle survey errors/interrupts is to check for err != nil.
 			err = survey.Ask(questions, &answers)
 			if err != nil {
-				if err == survey.ErrInterrupt {
-					color.Yellow("👋 Add operation cancelled.")
-					return
-				}
-				color.Red("❌ Error during survey: %v", err)
+				color.Yellow("👋 Add operation cancelled.")
 				return
 			}
 
@@ -196,60 +207,256 @@ func listCmd() *cobra.Command {
 	return cmd
 }
 
-// pickCmd creates the "pick" command for random selection
+// Enhanced pick command
 func pickCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "pick",
-		Short: "Pick 5 random problems to solve",
+	cmd := &cobra.Command{
+		Use:   "pick [number]",
+		Short: "Pick random problems to solve",
+		Long:  "Get a random selection of problems for your training session",
+		Args:  cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			problems, err := loadProblems()
 			if err != nil {
-				color.Red("Error loading problems: %v", err)
-				return
-			}
-			if len(problems) < 5 {
-				color.Red("Not enough problems to pick from. You need at least 5, but you have %d.", len(problems))
+				color.Red("❌ Error loading problems: %v", err)
 				return
 			}
 
-			// Shuffle the problems
-			rand.Shuffle(len(problems), func(i, j int) {
-				problems[i], problems[j] = problems[j], problems[i]
-			})
+			count := 5
+			if len(args) > 0 {
+				if c, err := strconv.Atoi(args[0]); err == nil && c > 0 {
+					count = c
+				}
+			}
 
-			color.HiMagenta("🚀 Here are your 5 random problems for today! 🚀")
-			for i := 0; i < 5; i++ {
+			if len(problems) == 0 {
+				color.Yellow("📝 No problems found!")
+				color.Cyan("💡 Add some problems first with: saitama add")
+				return
+			}
+
+			if len(problems) < count {
+				color.Yellow("⚠️  Not enough problems! You have %d, but requested %d", len(problems), count)
+				color.Cyan("💡 Showing all %d problems instead:", len(problems))
+				count = len(problems)
+			}
+
+			rand.Shuffle(len(problems), func(i, j int) { problems[i], problems[j] = problems[j], problems[i] })
+
+			fmt.Println()
+			color.HiMagenta("═══════════════════════════════════════════════════════════════")
+			color.HiMagenta("           🎯 TODAY'S TRAINING SELECTION! 🎯                 ")
+			color.HiMagenta("═══════════════════════════════════════════════════════════════")
+			fmt.Println()
+
+			for i := 0; i < count; i++ {
 				p := problems[i]
-				fmt.Printf("%d. ID: %-10s Name: %-40s Tags: %v\n",
-					i+1,
-					color.HiYellowString(p.ID),
-					color.WhiteString(p.Name),
-					color.GreenString("%v", p.Tags),
-				)
+				tagStr := "No tags"
+				if len(p.Tags) > 0 {
+					tagStr = strings.Join(p.Tags, " • ")
+				}
+				color.HiYellow("🥊 %d. %s", i+1, p.ID)
+				color.White("   📝 %s", p.Name)
+				color.Green("   🏷️  %s", tagStr)
+				fmt.Println()
+			}
+			color.HiGreen("💪 Good luck with your training! ONE PUNCH! 🥊")
+			fmt.Println()
+		},
+	}
+	return cmd
+}
+
+// New search command
+func searchCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "search <query>",
+		Short: "Search problems by name or tag",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			problems, err := loadProblems()
+			if err != nil {
+				color.Red("❌ Error loading problems: %v", err)
+				return
+			}
+
+			query := strings.ToLower(args[0])
+			var matches []Problem
+
+			for _, p := range problems {
+				// Check name
+				if strings.Contains(strings.ToLower(p.Name), query) {
+					matches = append(matches, p)
+					continue
+				}
+				// Check tags
+				for _, tag := range p.Tags {
+					if strings.Contains(strings.ToLower(tag), query) {
+						matches = append(matches, p)
+						break
+					}
+				}
+			}
+
+			if len(matches) == 0 {
+				color.Yellow("🔍 No problems found matching: '%s'", query)
+				return
+			}
+
+			fmt.Println()
+			color.HiCyan("🔍 Found %d problems matching '%s':", len(matches), query)
+			fmt.Println()
+
+			for i, p := range matches {
+				tagStr := strings.Join(p.Tags, ", ")
+				color.Yellow("%d. %s - %s", i+1, p.ID, p.Name)
+				color.Green("   Tags: %s", tagStr)
+				fmt.Println()
 			}
 		},
 	}
 }
 
-// main.go
-
-// tagsCmd creates the "tags" command
-func tagsCmd() *cobra.Command {
+// New delete command - REFACTORED to use findProblemByID
+func deleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "tags",
-		Short: "List all tags and their problem counts",
+		Use:   "delete <id>",
+		Short: "Delete a problem by ID",
+		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			problems, err := loadProblems()
 			if err != nil {
-				color.Red("Error loading problems: %v", err)
-				return
-			}
-			if len(problems) == 0 {
-				color.Yellow("No problems found. Add one with 'saitama add'.")
+				color.Red("❌ Error loading problems: %v", err)
 				return
 			}
 
-			// Create a map to count occurrences of each tag
+			targetID := strings.ToUpper(args[0])
+			problem, index := findProblemByID(problems, targetID)
+
+			if index == -1 {
+				color.Red("❌ Problem with ID '%s' not found", targetID)
+				return
+			}
+
+			confirm := false
+			prompt := &survey.Confirm{
+				Message: fmt.Sprintf("Delete problem '%s - %s'?", problem.ID, problem.Name),
+			}
+			err = survey.AskOne(prompt, &confirm)
+			if err != nil {
+				if err == survey.ErrInterrupt {
+					color.Yellow("👋 Delete operation cancelled.")
+					return
+				}
+				color.Red("❌ Error during confirmation: %v", err)
+				return
+			}
+
+			if !confirm {
+				color.Yellow("❌ Deletion cancelled")
+				return
+			}
+
+			// Efficiently delete element from slice
+			newProblems := append(problems[:index], problems[index+1:]...)
+
+			if err := saveProblems(newProblems); err != nil {
+				color.Red("❌ Error saving: %v", err)
+				return
+			}
+
+			color.Green("✅ Problem '%s' deleted successfully!", problem.ID)
+		},
+	}
+}
+
+// New edit command - REFACTORED to use findProblemByID
+func editCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "edit <id>",
+		Short: "Edit a problem by ID",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			problems, err := loadProblems()
+			if err != nil {
+				color.Red("❌ Error loading problems: %v", err)
+				return
+			}
+
+			targetID := strings.ToUpper(args[0])
+			problem, index := findProblemByID(problems, targetID)
+
+			if index == -1 {
+				color.Red("❌ Problem with ID '%s' not found", targetID)
+				return
+			}
+
+			answers := struct {
+				Name string
+				Tags string
+			}{}
+
+			questions := []*survey.Question{
+				{
+					Name:   "name",
+					Prompt: &survey.Input{Message: "📝 New name:", Default: problem.Name},
+				},
+				{
+					Name:   "tags",
+					Prompt: &survey.Input{Message: "🏷️  New tags:", Default: strings.Join(problem.Tags, ", ")},
+				},
+			}
+
+			err = survey.Ask(questions, &answers)
+			if err != nil {
+				if err == survey.ErrInterrupt {
+					color.Yellow("👋 Edit operation cancelled.")
+					return
+				}
+				color.Red("❌ Error during survey: %v", err)
+				return
+			}
+
+			// Update name
+			problems[index].Name = answers.Name
+
+			// Process and update tags
+			var tags []string
+			if answers.Tags != "" {
+				tagList := strings.Split(answers.Tags, ",")
+				for _, tag := range tagList {
+					cleaned := strings.TrimSpace(strings.ToLower(tag))
+					if cleaned != "" {
+						tags = append(tags, cleaned)
+					}
+				}
+			}
+			problems[index].Tags = tags
+
+			if err := saveProblems(problems); err != nil {
+				color.Red("❌ Error saving: %v", err)
+				return
+			}
+			color.Green("✅ Problem '%s' updated successfully!", problem.ID)
+		},
+	}
+}
+
+// Enhanced tags command
+func tagsCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "tags",
+		Short: "List all tags with problem counts",
+		Run: func(cmd *cobra.Command, args []string) {
+			problems, err := loadProblems()
+			if err != nil {
+				color.Red("❌ Error loading problems: %v", err)
+				return
+			}
+			if len(problems) == 0 {
+				color.Yellow("📝 No problems found!")
+				return
+			}
+
 			tagCounts := make(map[string]int)
 			for _, p := range problems {
 				for _, tag := range p.Tags {
@@ -257,38 +464,154 @@ func tagsCmd() *cobra.Command {
 				}
 			}
 
-			color.Cyan("--- Problems by Tag ---")
+			fmt.Println()
+			color.HiCyan("═══════════════════════════════════")
+			color.HiCyan("        🏷️  TAG ANALYTICS 🏷️         ")
+			color.HiCyan("═══════════════════════════════════")
+			fmt.Println()
+
 			if len(tagCounts) == 0 {
-				color.Yellow("No tags found.")
+				color.Yellow("🏷️  No tags found")
 				return
 			}
 
 			for tag, count := range tagCounts {
-				problemWord := "problem"
-				if count > 1 {
-					problemWord = "problems"
+				fmt.Printf("%-20s %s\n", color.HiYellowString("🏷️  "+tag), color.GreenString("(%d problems)", count))
+			}
+			fmt.Println()
+		},
+	}
+}
+
+// New stats command
+func statsCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "stats",
+		Short: "Show detailed statistics",
+		Run: func(cmd *cobra.Command, args []string) {
+			problems, err := loadProblems()
+			if err != nil {
+				color.Red("❌ Error loading problems: %v", err)
+				return
+			}
+			if len(problems) == 0 {
+				color.Yellow("📝 No problems found!")
+				return
+			}
+
+			tagCounts := make(map[string]int)
+			totalTags := 0
+			for _, p := range problems {
+				for _, tag := range p.Tags {
+					tagCounts[tag]++
+					totalTags++
 				}
-				fmt.Printf("%-20s - %s %s\n",
-					color.HiYellowString(tag),
-					color.GreenString("%d", count),
-					color.WhiteString(problemWord),
-				)
+			}
+
+			fmt.Println()
+			color.HiMagenta("═══════════════════════════════════════")
+			color.HiMagenta("         📊 SAITAMA STATISTICS 📊        ")
+			color.HiMagenta("═══════════════════════════════════════")
+			fmt.Println()
+
+			color.HiYellow("🗂️  Total Problems: %d", len(problems))
+			color.HiYellow("🏷️  Unique Tags: %d", len(tagCounts))
+			if len(problems) > 0 {
+				color.HiYellow("📈 Average Tags per Problem: %.1f", float64(totalTags)/float64(len(problems)))
+			}
+			fmt.Println()
+		},
+	}
+}
+
+// New import command - NOW FUNCTIONAL
+func importCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "import <file>",
+		Short: "Import problems from a JSON backup file",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			filePath := args[0]
+
+			// Safety check
+			confirm := false
+			prompt := &survey.Confirm{Message: "This will merge imported problems with your current list. Continue?"}
+			if err := survey.AskOne(prompt, &confirm); err != nil || !confirm {
+				color.Yellow("Import cancelled.")
+				return
+			}
+
+			importedProblems, err := importProblems(filePath)
+			if err != nil {
+				color.Red("❌ Error importing problems: %v", err)
+				return
+			}
+
+			currentProblems, err := loadProblems()
+			if err != nil {
+				color.Red("❌ Error loading current problems: %v", err)
+				return
+			}
+
+			// Merge logic (skip duplicates based on ID)
+			existingIDs := make(map[string]bool)
+			for _, p := range currentProblems {
+				existingIDs[p.ID] = true
+			}
+
+			var mergedProblems []Problem
+			mergedCount := 0
+			for _, p := range importedProblems {
+				if !existingIDs[p.ID] {
+					mergedProblems = append(mergedProblems, p)
+					mergedCount++
+				}
+			}
+
+			finalProblems := append(currentProblems, mergedProblems...)
+
+			if err := saveProblems(finalProblems); err != nil {
+				color.Red("❌ Error saving merged list: %v", err)
+				return
+			}
+			color.Green("✅ Successfully imported %d new problems from %s!", mergedCount, filePath)
+		},
+	}
+}
+
+// New export command - NOW FUNCTIONAL
+func exportCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "export <file>",
+		Short: "Export all problems to a JSON file",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			filePath := args[0]
+			problems, err := loadProblems()
+			if err != nil {
+				color.Red("❌ Error loading problems for export: %v", err)
+				return
+			}
+
+			if err := exportProblems(problems, filePath); err != nil {
+				color.Red("❌ Error exporting problems: %v", err)
+				return
+			}
+			color.Green("✅ Successfully exported %d problems to %s!", len(problems), filePath)
+		},
+	}
+}
+
+// Enhanced wiki command
+func wikiCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "wiki",
+		Short: "Show all available commands",
+		Run: func(cmd *cobra.Command, args []string) {
+			if err := cmd.Root().Help(); err != nil {
+				color.Red("❌ Could not display help information.")
 			}
 		},
 	}
 }
 
-// main.go
-
-// wikiCmd creates the "wiki" command
-func wikiCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "wiki",
-		Short: "Display all available commands and operations",
-		Run: func(cmd *cobra.Command, args []string) {
-			// The .Root() method gets the top-level command ("saitama")
-			// and .Help() displays its help message.
-			cmd.Root().Help()
-		},
-	}
-}
