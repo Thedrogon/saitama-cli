@@ -16,7 +16,6 @@ import (
 
 func main() {
 	// rand.Seed is deprecated and no longer needed in modern Go.
-	// The math/rand package is automatically seeded.
 
 	// ASCII Art Banner
 	banner := `
@@ -58,7 +57,6 @@ func main() {
 	)
 
 	if err := rootCmd.Execute(); err != nil {
-		// Cobra already prints the error, so we just exit
 		os.Exit(1)
 	}
 }
@@ -101,8 +99,8 @@ func addCmd() *cobra.Command {
 					}),
 				},
 				{
-					Name:   "name",
-					Prompt: &survey.Input{Message: "📝 Problem Name:"},
+					Name:     "name",
+					Prompt:   &survey.Input{Message: "📝 Problem Name:"},
 					Validate: survey.Required,
 				},
 				{
@@ -135,7 +133,7 @@ func addCmd() *cobra.Command {
 				ID:        strings.ToUpper(answers.ID),
 				Name:      answers.Name,
 				Tags:      tags,
-				DateAdded: time.Now(), // Set the date added
+				DateAdded: time.Now(),
 			}
 
 			problems := append(existingProblems, newProblem)
@@ -158,7 +156,7 @@ func addCmd() *cobra.Command {
 	return cmd
 }
 
-// Enhanced list command with better formatting
+// ... (listCmd, pickCmd, searchCmd functions remain the same) ...
 func listCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -178,7 +176,7 @@ func listCmd() *cobra.Command {
 
 			fmt.Println()
 			color.HiCyan("═══════════════════════════════════════════════════════════════════════════════")
-			color.HiCyan("                            🗂️  YOUR CODING ARSENAL 🗂️                        ")
+			color.HiCyan("                            🗂️  YOUR CODING ARSENAL 🗂️                           ")
 			color.HiCyan("═══════════════════════════════════════════════════════════════════════════════")
 			fmt.Println()
 
@@ -207,7 +205,6 @@ func listCmd() *cobra.Command {
 	return cmd
 }
 
-// Enhanced pick command
 func pickCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pick [number]",
@@ -266,7 +263,6 @@ func pickCmd() *cobra.Command {
 	return cmd
 }
 
-// New search command
 func searchCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "search <query>",
@@ -283,12 +279,10 @@ func searchCmd() *cobra.Command {
 			var matches []Problem
 
 			for _, p := range problems {
-				// Check name
 				if strings.Contains(strings.ToLower(p.Name), query) {
 					matches = append(matches, p)
 					continue
 				}
-				// Check tags
 				for _, tag := range p.Tags {
 					if strings.Contains(strings.ToLower(tag), query) {
 						matches = append(matches, p)
@@ -316,7 +310,6 @@ func searchCmd() *cobra.Command {
 	}
 }
 
-// New delete command - REFACTORED to use findProblemByID
 func deleteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <id>",
@@ -341,22 +334,19 @@ func deleteCmd() *cobra.Command {
 			prompt := &survey.Confirm{
 				Message: fmt.Sprintf("Delete problem '%s - %s'?", problem.ID, problem.Name),
 			}
+			
+			// FIX: Correct error handling for survey.
 			err = survey.AskOne(prompt, &confirm)
 			if err != nil {
-				if err == survey.ErrInterrupt {
-					color.Yellow("👋 Delete operation cancelled.")
-					return
-				}
-				color.Red("❌ Error during confirmation: %v", err)
+				color.Yellow("👋 Delete operation cancelled.")
 				return
 			}
 
 			if !confirm {
-				color.Yellow("❌ Deletion cancelled")
+				color.Yellow("❌ Deletion cancelled by user.")
 				return
 			}
 
-			// Efficiently delete element from slice
 			newProblems := append(problems[:index], problems[index+1:]...)
 
 			if err := saveProblems(newProblems); err != nil {
@@ -369,7 +359,6 @@ func deleteCmd() *cobra.Command {
 	}
 }
 
-// New edit command - REFACTORED to use findProblemByID
 func editCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "edit <id>",
@@ -406,20 +395,15 @@ func editCmd() *cobra.Command {
 				},
 			}
 
+			// FIX: Correct error handling for survey.
 			err = survey.Ask(questions, &answers)
 			if err != nil {
-				if err == survey.ErrInterrupt {
-					color.Yellow("👋 Edit operation cancelled.")
-					return
-				}
-				color.Red("❌ Error during survey: %v", err)
+				color.Yellow("👋 Edit operation cancelled.")
 				return
 			}
 
-			// Update name
 			problems[index].Name = answers.Name
 
-			// Process and update tags
 			var tags []string
 			if answers.Tags != "" {
 				tagList := strings.Split(answers.Tags, ",")
@@ -441,7 +425,7 @@ func editCmd() *cobra.Command {
 	}
 }
 
-// Enhanced tags command
+// ... (tagsCmd, statsCmd, importCmd, exportCmd, wikiCmd functions remain the same) ...
 func tagsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "tags",
@@ -483,7 +467,6 @@ func tagsCmd() *cobra.Command {
 	}
 }
 
-// New stats command
 func statsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "stats",
@@ -524,7 +507,6 @@ func statsCmd() *cobra.Command {
 	}
 }
 
-// New import command - NOW FUNCTIONAL
 func importCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "import <file>",
@@ -533,7 +515,6 @@ func importCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			filePath := args[0]
 
-			// Safety check
 			confirm := false
 			prompt := &survey.Confirm{Message: "This will merge imported problems with your current list. Continue?"}
 			if err := survey.AskOne(prompt, &confirm); err != nil || !confirm {
@@ -553,7 +534,6 @@ func importCmd() *cobra.Command {
 				return
 			}
 
-			// Merge logic (skip duplicates based on ID)
 			existingIDs := make(map[string]bool)
 			for _, p := range currentProblems {
 				existingIDs[p.ID] = true
@@ -579,7 +559,6 @@ func importCmd() *cobra.Command {
 	}
 }
 
-// New export command - NOW FUNCTIONAL
 func exportCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "export <file>",
@@ -602,7 +581,6 @@ func exportCmd() *cobra.Command {
 	}
 }
 
-// Enhanced wiki command
 func wikiCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "wiki",
