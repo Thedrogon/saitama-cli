@@ -147,32 +147,53 @@ func addCmd() *cobra.Command {
 	return cmd
 }
 
-// listCmd creates the "list" command
+// Enhanced list command with better formatting
 func listCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all saved coding problems",
+		Long:  "Display all your coding problems in a beautiful table format",
 		Run: func(cmd *cobra.Command, args []string) {
 			problems, err := loadProblems()
 			if err != nil {
-				color.Red("Error loading problems: %v", err)
+				color.Red("❌ Error loading problems: %v", err)
 				return
 			}
 			if len(problems) == 0 {
-				color.Yellow("No problems found. Add one with 'tracker add'.")
+				color.Yellow("📝 No problems found yet!")
+				color.Cyan("💡 Add your first problem with: saitama add")
 				return
 			}
 
-			color.Cyan("--- Your Coding Problems ---")
-			for _, p := range problems {
-				fmt.Printf("ID: %-10s Name: %-40s Tags: %v\n",
-					color.HiYellowString(p.ID),
-					color.WhiteString(p.Name),
-					color.GreenString("%v", p.Tags),
-				)
+			fmt.Println()
+			color.HiCyan("═══════════════════════════════════════════════════════════════════════════════")
+			color.HiCyan("                            🗂️  YOUR CODING ARSENAL 🗂️                        ")
+			color.HiCyan("═══════════════════════════════════════════════════════════════════════════════")
+			fmt.Println()
+
+			fmt.Printf("%-15s %-50s %-30s\n", color.HiYellowString("🆔 ID"), color.HiWhiteString("📝 NAME"), color.HiGreenString("🏷️ TAGS"))
+			color.HiBlack("---------------------------------------------------------------------------------------------------")
+
+			for i, p := range problems {
+				tagStr := "none"
+				if len(p.Tags) > 0 {
+					tagStr = strings.Join(p.Tags, ", ")
+				}
+
+				if i%2 == 0 {
+					fmt.Printf("%-15s %-50s %-30s\n", color.CyanString(p.ID), color.WhiteString(p.Name), color.GreenString(tagStr))
+				} else {
+					fmt.Printf("%-15s %-50s %-30s\n", color.HiCyanString(p.ID), color.HiWhiteString(p.Name), color.HiGreenString(tagStr))
+				}
 			}
+
+			fmt.Println()
+			color.HiBlack("---------------------------------------------------------------------------------------------------")
+			color.Magenta("📊 Total: %d problems", len(problems))
+			fmt.Println()
 		},
 	}
+	return cmd
 }
 
 // pickCmd creates the "pick" command for random selection
