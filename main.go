@@ -15,7 +15,7 @@ import (
 
 func main() {
 	// Seed the random number generator
-	rand.Seed(time.Now().UnixNano())
+	//rand.Seed(time.Now().UnixNano())
 
 	var rootCmd = &cobra.Command{
 		Use:   "saitama",
