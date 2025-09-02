@@ -43,76 +43,107 @@ func main() {
 	rootCmd.AddCommand(addCmd(), listCmd(), pickCmd(), tagsCmd(), wikiCmd())
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		
 		os.Exit(1)
 	}
 }
 
 // addCmd creates the "add" command
+// addCmd creates the "add" command with improved UX
 func addCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
-		Short: "Add a new coding problem via an interactive survey",
+		Short: "Add a new coding problem interactively",
+		Long:  color.HiGreenString("🔥 ONE PUNCH ADD! ") + "Add a new coding problem with an interactive questionnaire.",
 		Run: func(cmd *cobra.Command, args []string) {
-			// This struct will hold the answers from the survey
+			fmt.Println()
+			color.HiMagenta("═══════════════════════════════════════")
+			color.HiMagenta("        🥊 ADD NEW PROBLEM 🥊         ")
+			color.HiMagenta("═══════════════════════════════════════")
+			fmt.Println()
+
+			existingProblems, err := loadProblems()
+			if err != nil {
+				color.Red("❌ Error loading existing problems: %v", err)
+				return
+			}
+
 			answers := struct {
 				ID   string
 				Name string
-				Tags string // We'll ask for tags as a single string
+				Tags string
 			}{}
 
-			// Define the interactive questions
 			questions := []*survey.Question{
 				{
-					Name:      "id",
-					Prompt:    &survey.Input{Message: "Enter the problem ID (e.g., LC1):"},
-					Validate:  survey.Required,
+					Name:   "id",
+					Prompt: &survey.Input{Message: "🆔 Problem ID (e.g., LC1, CF123):"},
+					Validate: survey.ComposeValidators(survey.Required, func(ans interface{}) error {
+						id := ans.(string)
+						if _, index := findProblemByID(existingProblems, strings.ToUpper(id)); index != -1 {
+							return fmt.Errorf("ID '%s' already exists", id)
+						}
+						return nil
+					}),
 				},
 				{
-					Name:      "name",
-					Prompt:    &survey.Input{Message: "Enter the problem name (e.g., 'Two Sum'):"},
-					Validate:  survey.Required,
+					Name:   "name",
+					Prompt: &survey.Input{Message: "📝 Problem Name:"},
+					Validate: survey.Required,
 				},
 				{
-					Name:     "tags",
-					Prompt:   &survey.Input{Message: "Enter tags (comma separated, e.g., array,hashmap):"},
+					Name:   "tags",
+					Prompt: &survey.Input{Message: "🏷️  Tags (comma-separated):", Help: "e.g., array,hashmap,easy"},
 				},
 			}
 
-			// Ask the questions
-			err := survey.Ask(questions, &answers)
+			err = survey.Ask(questions, &answers)
 			if err != nil {
-				color.Red("An error occurred: %v", err)
+				if err == survey.ErrInterrupt {
+					color.Yellow("👋 Add operation cancelled.")
+					return
+				}
+				color.Red("❌ Error during survey: %v", err)
 				return
 			}
-            
-            // Process tags from a comma-separated string to a slice
-            tags := []string{}
-            if answers.Tags != "" {
-                tags = strings.Split(answers.Tags, ",")
-                for i := range tags {
-                    tags[i] = strings.TrimSpace(tags[i]) // Clean up whitespace
-                }
-            }
 
-
-			problems, err := loadProblems()
-			if err != nil {
-				color.Red("Error loading problems: %v", err)
-				return
+			// Process tags
+			var tags []string
+			if answers.Tags != "" {
+				tagList := strings.Split(answers.Tags, ",")
+				for _, tag := range tagList {
+					cleaned := strings.TrimSpace(strings.ToLower(tag))
+					if cleaned != "" {
+						tags = append(tags, cleaned)
+					}
+				}
 			}
-            
-			newProblem := Problem{ID: answers.ID, Name: answers.Name, Tags: tags}
-			problems = append(problems, newProblem)
+
+			// Create and save the problem
+			newProblem := Problem{
+				ID:        strings.ToUpper(answers.ID),
+				Name:      answers.Name,
+				Tags:      tags,
+				DateAdded: time.Now(), // Set the date added
+			}
+
+			problems := append(existingProblems, newProblem)
 
 			if err := saveProblems(problems); err != nil {
-				color.Red("Error saving problem: %v", err)
+				color.Red("❌ Error saving problem: %v", err)
 				return
 			}
-			color.Green("👊 ONE PUNCH! Problem '%s' added successfully!", answers.Name)
+
+			fmt.Println()
+			color.HiGreen("🎉 ONE PUNCH SUCCESS! 🎉")
+			color.Green("✅ Problem '%s' added successfully!", answers.Name)
+			color.Cyan("🆔 ID: %s", newProblem.ID)
+			if len(tags) > 0 {
+				color.Yellow("🏷️  Tags: %s", strings.Join(tags, ", "))
+			}
+			fmt.Println()
 		},
 	}
-	// Note: We no longer need flags for the add command!
 	return cmd
 }
 
