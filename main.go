@@ -263,10 +263,11 @@ func pickCmd() *cobra.Command {
 	return cmd
 }
 
+// searchCmd now searches for a problem by its ID
 func searchCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "search <query>",
-		Short: "Search problems by name or tag",
+		Use:   "search <id>",
+		Short: "Search for a problem by its ID",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			problems, err := loadProblems()
@@ -275,29 +276,23 @@ func searchCmd() *cobra.Command {
 				return
 			}
 
-			query := strings.ToLower(args[0])
+			queryID := strings.ToLower(args[0])
 			var matches []Problem
 
+			// Loop through all problems and find IDs that contain the query string
 			for _, p := range problems {
-				if strings.Contains(strings.ToLower(p.Name), query) {
+				if strings.Contains(strings.ToLower(p.ID), queryID) {
 					matches = append(matches, p)
-					continue
-				}
-				for _, tag := range p.Tags {
-					if strings.Contains(strings.ToLower(tag), query) {
-						matches = append(matches, p)
-						break
-					}
 				}
 			}
 
 			if len(matches) == 0 {
-				color.Yellow("🔍 No problems found matching: '%s'", query)
+				color.Yellow("🔍 No problems found with an ID matching: '%s'", queryID)
 				return
 			}
 
 			fmt.Println()
-			color.HiCyan("🔍 Found %d problems matching '%s':", len(matches), query)
+			color.HiCyan("🔍 Found %d problems with an ID matching '%s':", len(matches), queryID)
 			fmt.Println()
 
 			for i, p := range matches {
